@@ -77,6 +77,55 @@ out:
   (void) fi;
 }
 
+
+static void mgos_config_gethash_handler(struct mg_rpc_request_info *ri,
+                                    void *cb_arg, struct mg_rpc_frame_info *fi,
+                                    struct mg_str args) {
+  const struct mgos_conf_entry *schema = mgos_config_schema();
+  struct mgos_config *cfg = &mgos_sys_config;
+  struct mbuf send_mbuf;
+  mbuf_init(&send_mbuf, 0);
+
+  char *key = NULL;
+  int level = -1;
+  json_scanf(args.p, args.len, ri->args_fmt, &key, &level);
+
+  if (key != NULL) {
+    schema = mgos_conf_find_schema_entry(key, mgos_config_schema());
+    free(key);
+    if (schema == NULL) {
+      mg_rpc_send_errorf(ri, 404, "invalid config key");
+      goto out;
+    }
+  }
+
+  if (level >= 0 && level < 9) {
+    cfg = (struct mgos_config *) calloc(1, sizeof(*cfg));
+    if (!mgos_sys_config_load_level(cfg, (enum mgos_config_level) level)) {
+      mg_rpc_send_errorf(ri, 400, "failed to load config");
+      goto out;
+    }
+  }
+
+  mgos_conf_emit_cb(cfg, NULL, schema, false, &send_mbuf, NULL, NULL);
+
+  if (cfg != &mgos_sys_config) {
+    mgos_conf_free(mgos_config_schema(), cfg);
+    cfg = NULL;
+  }
+
+  mg_rpc_send_responsef(ri, "%.*s", (int) send_mbuf.len, send_mbuf.buf);
+  ri = NULL;
+
+out:
+  if (cfg != NULL && cfg != &mgos_sys_config) {
+    mgos_conf_free(mgos_config_schema(), cfg);
+  }
+  mbuf_free(&send_mbuf);
+  (void) cb_arg;
+  (void) fi;
+}
+
 /*
  * Called by json_scanf() for the "config" field, and parses all the given
  * JSON as sys config
