@@ -238,6 +238,8 @@ bool mgos_rpc_service_config_init(void) {
   struct mg_rpc *c = mgos_rpc_get_global();
   mg_rpc_add_handler(c, "Config.Get", "{key: %Q, level: %d}",
                      mgos_config_get_handler, NULL);
+  mg_rpc_add_handler(c, "Config.Gethash", "{key: %Q, level: %d}",
+                     mgos_config_gethash_handler, NULL);
   mg_rpc_add_handler(c, "Config.Set",
                      "{config: %M, level: %d, "
                      "save: %B, try_once: %B, reboot: %B}",
